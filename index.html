@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fake News Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --bg2: #111116;
+    --bg3: #1a1a22;
+    --border: #2a2a38;
+    --accent: #e63946;
+    --accent2: #ff6b6b;
+    --safe: #2ecc71;
+    --caution: #f39c12;
+    --warning: #e67e22;
+    --danger: #e74c3c;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+    --display: 'Bebas Neue', cursive;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── 배경 그리드 ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(230,57,70,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(230,57,70,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    position: relative;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(10,10,12,0.9);
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .logo-main {
+    font-family: var(--display);
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .logo-main span { color: var(--accent); }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text2);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text2);
+  }
+  .status-dot.on { background: var(--safe); box-shadow: 0 0 6px var(--safe); }
+  .status-dot.off { background: var(--danger); }
+
+  /* ── 메인 ── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 40px;
+  }
+
+  /* ── 입력 섹션 ── */
+  .input-section {
+    margin-bottom: 60px;
+  }
+
+  .input-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-label::before {
+    content: '>';
+    color: var(--accent);
+  }
+
+  .input-wrapper {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    transition: border-color 0.2s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 30px rgba(230,57,70,0.1);
+  }
+
+  .url-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 18px 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  .url-input::placeholder { color: var(--text2); }
+
+  .analyze-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 18px 36px;
+    font-family: var(--display);
+    font-size: 18px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .analyze-btn:hover { background: var(--accent2); }
+  .analyze-btn:active { transform: scale(0.98); }
+  .analyze-btn:disabled { background: var(--border); cursor: not-allowed; }
+
+  /* ── 로딩 ── */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+  }
+
+  .loading.visible { display: block; }
+
+  .loading-title {
+    font-family: var(--display);
+    font-size: 48px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    margin-bottom: 24px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .loading-steps {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 2;
+  }
+
+  .loading-step { opacity: 0.3; transition: opacity 0.4s; }
+  .loading-step.active { opacity: 1; color: var(--text); }
+  .loading-step.done { opacity: 0.6; color: var(--safe); }
+  .loading-step.done::before { content: '✓ '; }
+  .loading-step.active::before { content: '▶ '; color: var(--accent); }
+
+  /* ── 결과 섹션 ── */
+  .result-section {
+    display: none;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .result-section.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── 판정 배너 ── */
+  .verdict-banner {
+    padding: 32px 40px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 4px solid;
+    background: var(--bg2);
+  }
+
+  .verdict-banner.safe { border-color: var(--safe); }
+  .verdict-banner.caution { border-color: var(--caution); }
+  .verdict-banner.warning { border-color: var(--warning); }
+  .verdict-banner.danger { border-color: var(--danger); }
+
+  .verdict-text {
+    font-family: var(--display);
+    font-size: 36px;
+    letter-spacing: 3px;
+  }
+
+  .verdict-banner.safe .verdict-text { color: var(--safe); }
+  .verdict-banner.caution .verdict-text { color: var(--caution); }
+  .verdict-banner.warning .verdict-text { color: var(--warning); }
+  .verdict-banner.danger .verdict-text { color: var(--danger); }
+
+  .verdict-score {
+    font-family: var(--display);
+    font-size: 72px;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+
+  .verdict-score span {
+    font-size: 20px;
+    font-family: var(--mono);
+    opacity: 0.5;
+  }
+
+  .verdict-explanation {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 8px;
+    font-weight: 300;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
+  /* ── 그리드 ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .grid-full {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── 패널 ── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── 점수 바 ── */
+  .score-bars { display: flex; flex-direction: column; gap: 14px; }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .score-name {
+    font-size: 11px;
+    color: var(--text2);
+    width: 110px;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  .score-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0;
+  }
+
+  .score-fill.safe { background: var(--safe); }
+  .score-fill.caution { background: var(--caution); }
+  .score-fill.warning { background: var(--warning); }
+  .score-fill.danger { background: var(--danger); }
+
+  .score-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 36px;
+    text-align: right;
+  }
+
+  /* ── 원문 정보 ── */
+  .article-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .article-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  .article-preview {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.7;
+    font-weight: 300;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+  }
+
+  /* ── 전파 그래프 ── */
+  #graph-canvas {
+    width: 100%;
+    height: 320px;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .graph-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .graph-node:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 10; }
+
+  .node-circle {
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .node-label {
+    font-size: 9px;
+    color: var(--text2);
+    margin-top: 4px;
+    max-width: 70px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--mono);
+  }
+
+  .graph-svg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .graph-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+  }
+
+  .graph-stat {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .graph-stat strong {
+    color: var(--text);
+    font-size: 18px;
+    display: block;
+  }
+
+  /* ── 타임라인 ── */
+  .timeline { position: relative; }
+
+  .timeline-item {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+
+  .timeline-item:last-child { border-bottom: none; }
+
+  .timeline-order {
+    font-family: var(--display);
+    font-size: 28px;
+    color: var(--border);
+    width: 32px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .timeline-body { flex: 1; }
+
+  .timeline-name {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .timeline-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    display: flex;
+    gap: 12px;
+  }
+
+  .platform-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+
+  .platform-news { color: #74b9ff; border-color: #74b9ff33; }
+  .platform-blog { color: #a29bfe; border-color: #a29bfe33; }
+  .platform-community { color: #fd79a8; border-color: #fd79a833; }
+  .platform-sns { color: #00cec9; border-color: #00cec933; }
+  .platform-default { color: var(--text2); border-color: var(--border); }
+
+  /* ── 팩트체크 ── */
+  .factcheck-item {
+    padding: 14px;
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+    background: var(--bg3);
+  }
+
+  .factcheck-rating {
+    font-family: var(--display);
+    font-size: 18px;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .factcheck-claim {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .factcheck-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  .factcheck-source a { color: var(--accent); text-decoration: none; }
+  .factcheck-source a:hover { text-decoration: underline; }
+
+  .no-data {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    padding: 20px 0;
+    text-align: center;
+  }
+
+  /* ── 통계 ── */
+  .stat-big {
+    font-family: var(--display);
+    font-size: 48px;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 2px;
+  }
+
+  /* ── 에러 ── */
+  .error-msg {
+    display: none;
+    background: rgba(231,76,60,0.1);
+    border: 1px solid var(--danger);
+    padding: 16px 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--danger);
+    margin-bottom: 24px;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* ── 스크롤바 ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  @media (max-width: 768px) {
+    header { padding: 16px 20px; }
+    main { padding: 32px 20px; }
+    .grid { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr; }
+    .verdict-banner { flex-direction: column; gap: 16px; }
+    .logo-main { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-main">FAKE<span>NEWS</span>TRACKER</div>
+    <div class="logo-sub">v2.0 — 가짜뉴스 전파 경로 추적기</div>
+  </div>
+  <div class="status-bar" id="statusBar">
+    <div class="status-item">
+      <div class="status-dot" id="dot-naver"></div>
+      <span id="label-naver">NAVER</span>
+    </div>
+    <div class="status-item">
+      <div class="status-dot" id="dot-google"></div>
+      <span id="label-google">GOOGLE</span>
+    </div>
+    <div class="status-item">
+      <div class="status-dot" id="dot-fact"></div>
+      <span id="label-fact">FACTCHECK</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="input-section">
+    <div class="input-label">분석할 뉴스 URL 입력</div>
+    <div class="input-wrapper">
+      <input
+        type="text"
+        class="url-input"
+        id="urlInput"
+        placeholder="https://n.news.naver.com/article/..."
+        autocomplete="off"
+      />
+      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()">
+        ANALYZE
+      </button>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- 로딩 -->
+  <div class="loading" id="loadingSection">
+    <div class="loading-title">ANALYZING</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step1">URL 크롤링 중...</div>
+      <div class="loading-step" id="step2">핵심 문장 추출 중...</div>
+      <div class="loading-step" id="step3">유사 기사 검색 중...</div>
+      <div class="loading-step" id="step4">후보 기사 크롤링 중...</div>
+      <div class="loading-step" id="step5">TF-IDF 유사도 분석 중...</div>
+      <div class="loading-step" id="step6">전파 그래프 구성 중...</div>
+      <div class="loading-step" id="step7">팩트체크 대조 중...</div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="result-section" id="resultSection">
+
+    <!-- 판정 배너 -->
+    <div class="verdict-banner" id="verdictBanner">
+      <div>
+        <div class="verdict-text" id="verdictText"></div>
+        <div class="verdict-explanation" id="verdictExplain"></div>
+      </div>
+      <div>
+        <div class="verdict-score" id="verdictScore">
+          0<span>/100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 원문 정보 + 점수 -->
+    <div class="grid" style="margin-bottom:16px;">
+      <div class="panel">
+        <div class="panel-title">원문 정보</div>
+        <div class="article-title" id="articleTitle"></div>
+        <div class="article-meta" id="articleMeta"></div>
+        <div class="article-preview" id="articlePreview"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">신뢰도 세부 점수</div>
+        <div class="score-bars" id="scoreBars"></div>
+      </div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="grid grid-3" style="margin-bottom:16px;">
+      <div class="panel" style="text-align:center;">
+        <div class="panel-title">후보 기사</div>
+        <div class="stat-big" id="statCandidates">0</div>
+        <div class="stat-label">TOTAL CANDIDATES</div>
+      </div>
+      <div class="panel" style="text-align:center;">
+        <div class="panel-title">유사 기사</div>
+        <div class="stat-big" id="statSimilar">0</div>
+        <div class="stat-label">SIMILAR ARTICLES</div>
+      </div>
+      <div class="panel" style="text-align:center;">
+        <div class="panel-title">평균 유사도</div>
+        <div class="stat-big" id="statAvgSim">0%</div>
+        <div class="stat-label">AVG SIMILARITY</div>
+      </div>
+    </div>
+
+    <!-- 전파 그래프 -->
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">전파 경로 그래프</div>
+      <div id="graph-canvas">
+        <svg class="graph-svg" id="graphSvg"></svg>
+      </div>
+      <div class="graph-stats" id="graphStats"></div>
+    </div>
+
+    <!-- 타임라인 + 팩트체크 -->
+    <div class="grid" style="margin-bottom:16px;">
+      <div class="panel">
+        <div class="panel-title">전파 타임라인</div>
+        <div id="timelineList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">팩트체크 결과</div>
+        <div id="factcheckList"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+
+// ── 서버 상태 확인 ──────────────────────────────────
+async function checkHealth() {
+  try {
+    const res = await fetch(`${API}/api/health`);
+    const data = await res.json();
+    setDot('naver', data.services.naver_search);
+    setDot('google', data.services.google_search);
+    setDot('fact', data.services.fact_check);
+  } catch (e) {
+    ['naver','google','fact'].forEach(k => setDot(k, false));
+  }
+}
+
+function setDot(key, on) {
+  const dot = document.getElementById(`dot-${key}`);
+  dot.className = 'status-dot ' + (on ? 'on' : 'off');
+}
+
+// ── 분석 시작 ──────────────────────────────────────
+async function startAnalysis() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+
+  // UI 초기화
+  document.getElementById('errorMsg').classList.remove('visible');
+  document.getElementById('resultSection').classList.remove('visible');
+  document.getElementById('loadingSection').classList.add('visible');
+  document.getElementById('analyzeBtn').disabled = true;
+
+  // 로딩 스텝 애니메이션
+  const steps = ['step1','step2','step3','step4','step5','step6','step7'];
+  let stepIdx = 0;
+  steps.forEach(s => { document.getElementById(s).className = 'loading-step'; });
+  document.getElementById(steps[0]).className = 'loading-step active';
+
+  const stepTimer = setInterval(() => {
+    if (stepIdx < steps.length - 1) {
+      document.getElementById(steps[stepIdx]).className = 'loading-step done';
+      stepIdx++;
+      document.getElementById(steps[stepIdx]).className = 'loading-step active';
+    }
+  }, 1800);
+
+  try {
+    const res = await fetch(`${API}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, max_candidates: 30 }),
+    });
+
+    clearInterval(stepTimer);
+    steps.forEach(s => { document.getElementById(s).className = 'loading-step done'; });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    await new Promise(r => setTimeout(r, 500));
+    renderResult(data);
+
+  } catch (e) {
+    clearInterval(stepTimer);
+    document.getElementById('loadingSection').classList.remove('visible');
+    const em = document.getElementById('errorMsg');
+    em.textContent = `오류: ${e.message}`;
+    em.classList.add('visible');
+  }
+
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('loadingSection').classList.remove('visible');
+}
+
+// ── 결과 렌더링 ────────────────────────────────────
+function renderResult(data) {
+  const { original, graph, trust_score, fact_checks, timeline, stats } = data;
+
+  // 판정 배너
+  const banner = document.getElementById('verdictBanner');
+  banner.className = `verdict-banner ${trust_score.verdict_level}`;
+  document.getElementById('verdictText').textContent = trust_score.verdict;
+  document.getElementById('verdictExplain').textContent = trust_score.explanation;
+
+  // 점수 카운트업
+  animateNumber('verdictScore', 0, trust_score.overall, 1200, v => {
+    document.getElementById('verdictScore').innerHTML = `${Math.round(v)}<span>/100</span>`;
+  });
+
+  // 원문 정보
+  document.getElementById('articleTitle').textContent =
+    original.title || '(제목 없음)';
+  document.getElementById('articleMeta').innerHTML = `
+    <span>🔗 ${original.domain}</span>
+    ${original.author ? `<span>✍️ ${original.author}</span>` : ''}
+    ${original.date ? `<span>📅 ${original.date.slice(0,10)}</span>` : ''}
+  `;
+  document.getElementById('articlePreview').textContent =
+    (original.text || '').slice(0, 200) + '…';
+
+  // 신뢰도 세부 점수
+  const scoreMap = [
+    ['출처 신뢰성', trust_score.source_reliability],
+    ['팩트체크', trust_score.fact_check_match],
+    ['텍스트 일관성', trust_score.text_consistency],
+    ['출처 다양성', trust_score.source_diversity],
+    ['작성자 투명성', trust_score.author_transparency],
+  ];
+  document.getElementById('scoreBars').innerHTML = scoreMap.map(([name, val]) => {
+    const cls = val >= 70 ? 'safe' : val >= 50 ? 'caution' : val >= 30 ? 'warning' : 'danger';
+    return `
+      <div class="score-row">
+        <div class="score-name">${name}</div>
+        <div class="score-track">
+          <div class="score-fill ${cls}" style="width:${val}%"></div>
+        </div>
+        <div class="score-val">${val}</div>
+      </div>`;
+  }).join('');
+
+  // 통계
+  document.getElementById('statCandidates').textContent = stats.total_candidates;
+  document.getElementById('statSimilar').textContent = stats.similar_count;
+  document.getElementById('statAvgSim').textContent =
+    Math.round((stats.avg_similarity || 0) * 100) + '%';
+
+  // 그래프
+  renderGraph(graph);
+
+  // 타임라인
+  const tlEl = document.getElementById('timelineList');
+  if (timeline.length === 0) {
+    tlEl.innerHTML = '<div class="no-data">타임라인 데이터 없음</div>';
+  } else {
+    tlEl.innerHTML = timeline.slice(0, 8).map(item => `
+      <div class="timeline-item">
+        <div class="timeline-order">${item.order + 1}</div>
+        <div class="timeline-body">
+          <div class="timeline-name">${item.name}</div>
+          <div class="timeline-meta">
+            <span class="platform-badge platform-${item.platform}">${item.platform}</span>
+            <span>${item.pub_date ? item.pub_date.slice(0,16) : '-'}</span>
+            <span>depth ${item.depth}</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // 팩트체크
+  const fcEl = document.getElementById('factcheckList');
+  if (!fact_checks || fact_checks.length === 0) {
+    fcEl.innerHTML = '<div class="no-data">팩트체크 결과 없음</div>';
+  } else {
+    fcEl.innerHTML = fact_checks.slice(0, 5).map(fc => `
+      <div class="factcheck-item">
+        <div class="factcheck-rating">${fc.rating}</div>
+        <div class="factcheck-claim">${fc.claim.slice(0, 120)}…</div>
+        <div class="factcheck-source">
+          ${fc.publisher}
+          ${fc.url ? `· <a href="${fc.url}" target="_blank">원문 보기 →</a>` : ''}
+        </div>
+      </div>`).join('');
+  }
+
+  document.getElementById('resultSection').classList.add('visible');
+}
+
+// ── 그래프 렌더링 ───────────────────────────────────
+function renderGraph(graph) {
+  const canvas = document.getElementById('graph-canvas');
+  const svg = document.getElementById('graphSvg');
+
+  // 캔버스 크기 강제 확보
+  canvas.style.height = '400px';
+  const W = canvas.getBoundingClientRect().width || 800;
+  const H = 400;
+
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.innerHTML = '';
+  canvas.querySelectorAll('.graph-node').forEach(n => n.remove());
+
+  if (!graph.nodes || graph.nodes.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--mono);font-size:12px;color:var(--text2)';
+    msg.textContent = '그래프 데이터 없음';
+    canvas.appendChild(msg);
+    return;
+  }
+
+  const nodes = graph.nodes;
+  const positions = {};
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) * 0.38;
+
+  // 원점 노드는 중앙, 나머지는 원형 배치
+  const nonOrigin = nodes.filter(n => n.id !== graph.origin_id);
+  nodes.forEach(node => {
+    if (node.id === graph.origin_id) {
+      positions[node.id] = { x: cx, y: cy };
+    }
+  });
+  nonOrigin.forEach((node, i) => {
+    const angle = (i / nonOrigin.length) * 2 * Math.PI - Math.PI / 2;
+    positions[node.id] = {
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle),
+    };
+  });
+
+  // 엣지 그리기
+  (graph.edges || []).forEach(edge => {
+    const s = positions[edge.source];
+    const t = positions[edge.target];
+    if (!s || !t) return;
+
+    // 화살표 마커
+    const markerId = `arrow-${edge.source}-${edge.target}`.replace(/[^a-z0-9-]/g, '');
+    const defs = svg.querySelector('defs') || svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'defs'));
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', markerId);
+    marker.setAttribute('markerWidth', '8');
+    marker.setAttribute('markerHeight', '8');
+    marker.setAttribute('refX', '6');
+    marker.setAttribute('refY', '3');
+    marker.setAttribute('orient', 'auto');
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', 'M0,0 L0,6 L8,3 z');
+    arrow.setAttribute('fill', `rgba(230,57,70,${Math.max(0.3, edge.similarity * 0.8)})`);
+    marker.appendChild(arrow);
+    defs.appendChild(marker);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+    line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+    line.setAttribute('stroke', `rgba(230,57,70,${Math.max(0.2, edge.similarity * 0.6)})`);
+    line.setAttribute('stroke-width', Math.max(1, edge.similarity * 2.5));
+    line.setAttribute('marker-end', `url(#${markerId})`);
+    svg.appendChild(line);
+  });
+
+  // 노드 생성 + 드래그
+  nodes.forEach(node => {
+    const pos = positions[node.id];
+    if (!pos) return;
+
+    const isOrigin = node.id === graph.origin_id;
+    const size = isOrigin ? 48 : 34;
+    const color = isOrigin ? '#e63946' : getPlatformColor(node.platform_type);
+
+    const el = document.createElement('div');
+    el.className = 'graph-node';
+    el.style.left = pos.x + 'px';
+    el.style.top = pos.y + 'px';
+    el.style.zIndex = isOrigin ? 5 : 2;
+    el.innerHTML = `
+      <div class="node-circle" style="
+        width:${size}px;height:${size}px;
+        border-color:${color};
+        background:${color}22;
+        color:${color};
+        font-size:${isOrigin ? 10 : 9}px;
+        cursor:grab;
+      ">${node.platform_type.slice(0,2).toUpperCase()}</div>
+      <div class="node-label">${node.name.slice(0,12)}</div>
+    `;
+    el.title = `${node.name}\n플랫폼: ${node.platform_type}\n날짜: ${node.pub_date || '-'}\n깊이: ${node.depth}`;
+
+    // 드래그 기능
+    let dragging = false, ox = 0, oy = 0;
+    el.addEventListener('mousedown', e => {
+      dragging = true;
+      ox = e.clientX - pos.x;
+      oy = e.clientY - pos.y;
+      el.style.zIndex = 20;
+      el.querySelector('.node-circle').style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const rect = canvas.getBoundingClientRect();
+      pos.x = Math.max(size/2, Math.min(W - size/2, e.clientX - ox));
+      pos.y = Math.max(size/2, Math.min(H - size/2, e.clientY - oy));
+      el.style.left = pos.x + 'px';
+      el.style.top = pos.y + 'px';
+      updateEdges();
+    });
+    document.addEventListener('mouseup', () => {
+      if (dragging) {
+        dragging = false;
+        el.style.zIndex = isOrigin ? 5 : 2;
+        el.querySelector('.node-circle').style.cursor = 'grab';
+      }
+    });
+
+    // 클릭 시 URL 열기 (드래그와 구분)
+    let mouseDownX, mouseDownY;
+    el.addEventListener('mousedown', e => {
+      mouseDownX = e.clientX;
+      mouseDownY = e.clientY;
+    });
+    el.addEventListener('mouseup', e => {
+      const dx = Math.abs(e.clientX - mouseDownX);
+      const dy = Math.abs(e.clientY - mouseDownY);
+      if (dx < 5 && dy < 5 && node.url) {
+        window.open(node.url, '_blank');
+      }
+    });
+
+    canvas.appendChild(el);
+  });
+
+  // 엣지 위치 업데이트 함수
+  function updateEdges() {
+    svg.querySelectorAll('line').forEach((line, i) => {
+      const edge = (graph.edges || [])[i];
+      if (!edge) return;
+      const s = positions[edge.source];
+      const t = positions[edge.target];
+      if (s && t) {
+        line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+        line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+      }
+    });
+  }
+
+  // 통계
+  document.getElementById('graphStats').innerHTML = `
+    <div class="graph-stat"><strong>${nodes.length}</strong>NODES</div>
+    <div class="graph-stat"><strong>${(graph.edges||[]).length}</strong>EDGES</div>
+    <div class="graph-stat"><strong>${graph.max_depth}</strong>MAX DEPTH</div>
+    <div class="graph-stat"><strong>${graph.time_span_hours}h</strong>TIME SPAN</div>
+  `;
+}
+
+function getPlatformColor(platform) {
+  const map = {
+    news: '#74b9ff', blog: '#a29bfe', community: '#fd79a8',
+    sns: '#00cec9', youtube: '#ff7675', cafe: '#fdcb6e',
+  };
+  return map[platform] || '#636e72';
+}
+
+function animateNumber(id, from, to, duration, cb) {
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    cb(from + (to - from) * ease);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Enter 키 지원
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startAnalysis();
+});
+
+// 초기 상태 확인
+checkHealth();
+</script>
+</body>
+</html>
