@@ -29,6 +29,7 @@ from similarity import TextSimilarityAnalyzer
 from fact_check import FactChecker
 from graph_builder import PropagationGraphBuilder
 from scorer import TrustScorer
+from fastapi.responses import FileResponse
 
 # ── 환경변수 로드 ──────────────────────────────────────────
 load_dotenv()
@@ -117,6 +118,11 @@ class HealthResponse(BaseModel):
 
 
 # ── API 엔드포인트 ─────────────────────────────────────────
+@app.get("/")
+async def serve_frontend():
+    """메인 웹페이지 제공"""
+    return FileResponse("index.html")
+
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
